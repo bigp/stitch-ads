@@ -131,6 +131,7 @@ function tryStepFunc(func, step) {
     }
 }
 
+//Stitch Constructor:
 class stitch {
     constructor() {
         this._ads = {};
