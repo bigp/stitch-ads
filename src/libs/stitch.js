@@ -118,6 +118,10 @@ global.pngquantCompress = function pngquantCompress( img, quality, cb ) {
         if(err) throw err;
         _imageminBuffer(data, quality, cb);
     });
+};
+
+function getImages(folder) {
+    return fileFilter(folder, file => /\.(png|jpg|gif)/.test(file));
 }
 
 function tryStepFunc(func, step) {
@@ -200,8 +204,24 @@ class stitch {
 
             res.sendFile(_this._primaryAd.outputHTML);
         });
-        
-        app.use(express.static(__project + '/public'));
+
+        var __public = __project + '/public';
+
+        app.use('/*.php', function(req, res, next) {
+            var phpPath = __public +  req.baseUrl;
+
+            if(!fileExists(phpPath)) {
+                return res.send("ERROR!");
+            }
+
+            phpExec(phpPath, (output) => {
+                res.send(output);
+            });
+
+            return;
+        });
+
+        app.use(express.static(__public));
         
         app.listen(commands.port || port);
     }
@@ -334,6 +354,7 @@ class stitch {
         var ads = _this._ads;
         var templateSrc;
         var adNames = __.keys(ads);
+        var commonImages;
         
         traceClear();
         
@@ -464,6 +485,20 @@ class stitch {
                     });
                 });
             },
+
+            (step) => {
+                //Create atlas of COMMON images:
+
+                var commonImagesPath = __project + '/_common/images';
+                if(!fileExists(commonImagesPath)) {
+                    commonImages = [];
+                    return step();
+                }
+
+                commonImages = getImages(commonImagesPath);
+
+                step();
+            },
             
             //Create a spritesheet/atlas & JS coordinate file for each ads' images.
             (step) => {
@@ -484,11 +519,9 @@ class stitch {
                         return noImage();
                     }
                     
-                    var sprites = fileFilter(imagesPath, file => /\.(png|jpg|gif)/.test(file));
+                    var sprites = [].concat(commonImages, getImages(imagesPath));
                     
-                    if(sprites==null || sprites.length==0) {
-                        return noImage();
-                    }
+                    if(!sprites || !sprites.length) return noImage();
                     
                     trace("Spritesheet check... " + adName);
                     

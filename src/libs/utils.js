@@ -327,12 +327,13 @@ global.remapKeys = function(obj, cb) {
 };
 
 function noFunc() {}
+var _exe = require('child_process').exec;
+
 global.exec = function(command, args, callbacks, doTrace) {
-	var exe = require('child_process').exec;
 
 	doTrace && trace(command + ":\n  " + args.join(' '));
 
-	exe(command + " " + args.join(' '), (err, out, stderr) => {
+	_exe(command + " " + args.join(' '), (err, out, stderr) => {
 		if(err) throw err;
 		if(out!='') trace(out);
 		if(stderr!='') trace(out);
@@ -340,6 +341,14 @@ global.exec = function(command, args, callbacks, doTrace) {
 		callbacks && callbacks();
 	});
 };
+
+global.phpExec = function(file, cb) {
+	_exe("php " + file, function (error, stdout, stderr) {
+		if(error) return cb("PHP ERROR: " + error);
+		if(stderr && stderr.length>0) return cb(stderr);
+		cb(stdout);
+	});
+}
 
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
