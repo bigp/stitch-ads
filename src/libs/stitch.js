@@ -377,7 +377,7 @@ class stitch {
                     throw new Error("No template index.html file found!");
                 }
                 
-                trace("Using index.html found in: " + templateIndexes[0]);
+                trace("Using index.html found in: " + templateIndexes[0].replace(__project, '...'));
                 fileRead( templateIndexes[0], (err, content, file) => {
                     if(err) throw err;
 
@@ -421,15 +421,13 @@ class stitch {
                         return step();
                     }
                     
-                    trace("Using defines in the stitch-config.js file.".yellow);
+                    //trace("Using defines in the stitch-config.js file.".yellow);
                     _this.defines = _this.config.defines;
                 } else {
                     _this.defines = require(definesFile);
-                    trace("Found define file: " + definesFile);
+                    trace("Found define file: ".yellow + definesFile);
                 }
                
-                trace(_this.defines);
-
                 var _default = _this.defines._default;
                 adNames.forEach(adName => {
                     var ad = ads[adName];
@@ -452,7 +450,6 @@ class stitch {
 
                     ad.outputHTML = outputHTML;
                     ad.outputPath = outputHTML.substr(0,outputHTML.lastIndexOf('/'));
-                    trace(ad.outputPath);
                 });
 
                 step();
@@ -462,8 +459,6 @@ class stitch {
             (step) => {
                 var count = adNames.length;
                 function doNext() { if((--count)<=0) step(); }
-                
-                trace("Check for assets...".red);
                 
                 adNames.forEach(adName => {
                     var ad = ads[adName];
@@ -477,6 +472,7 @@ class stitch {
                         return doNext();
                     }
                     
+					//NCP ???? Oh file copy... ok.
                     ncp(assetsPath, ad.outputPath, err => {
                         if(err) throw err;
                         
@@ -488,8 +484,7 @@ class stitch {
 
             (step) => {
                 //Create atlas of COMMON images:
-
-                var commonImagesPath = __project + '/_common/images';
+				var commonImagesPath = __project + '/_common/images';
                 if(!fileExists(commonImagesPath)) {
                     commonImages = [];
                     return step();
@@ -523,8 +518,6 @@ class stitch {
                     
                     if(!sprites || !sprites.length) return noImage();
                     
-                    trace("Spritesheet check... " + adName);
-                    
                     ad.atlasName = ad.filename+ '-atlas.png';
                     ad.atlasPath = (__public + "/" + ad.atlasName).fixSlashes();
                     
@@ -536,7 +529,7 @@ class stitch {
                     spritesmith.run({src: sprites, padding: _this.config.padding}, (err, result) => {
                         if(err) throw err;
 
-                        trace("Spritesheet make... " + adName);
+                        trace("Spritesheet make: ".green + adName);
 
                         var frames = [], anims = {};
 
@@ -570,7 +563,7 @@ class stitch {
                                 var customAtlas = _this.config.onAtlas(ad, result);
                                 ad.atlas = JSON.stringify(customAtlas);
                             } else {
-                                trace("  Create atlas for {0} (compressed with imagemin) ...".format(adName).yellow);
+                                trace("Create atlas for \"{0}\"".format(adName).yellow);
                                 
                                 ad.atlas = JSON.stringify({
                                     size: result.properties,
@@ -594,7 +587,6 @@ class stitch {
             
             //Execute any 'pre-compilation' callbacks:
             (step) => {
-                trace("Pre-compile...");
                 if(_this.config.preCompileEach) {
                     adNames.forEach(adName => {
                         var ad = _this._ads[adName];
@@ -709,8 +701,6 @@ class stitch {
 
             (step) => {
 
-                trace("Post-compile...");
-
                 if(_this.config.postCompileEach) {
                     adNames.forEach(adName => {
                         var ad = _this._ads[adName];
@@ -750,7 +740,6 @@ class stitch {
             
             (step) => {
                 if(!commands.render || commands.render<1) {
-                    trace("Skipping rendering to PNG.");
                     return step();
                 }
                 
