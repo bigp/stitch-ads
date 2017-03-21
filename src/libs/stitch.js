@@ -781,7 +781,7 @@ class stitch {
                             console.log(status);
                             trace(("Waiting... "+time+"ms").yellow);
 
-                            sitepage.clipRect = {top:0, left:0, width: ad.width, height: ad.height};
+                            sitepage.property('clipRect', {top:0, left:0, width: ad.width, height: ad.height});
                             
                             setTimeout(() => {
                                 trace("Rendering... " + pngTemp);
