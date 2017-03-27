@@ -745,8 +745,6 @@ class stitch {
                 
                 trace("Starting rendering, with timeout of: {0}ms.".format(commands.render).yellow);
                 
-                //var webPage = require('webpage');
-                //var page = webPage.create();
                 var count = adNames.length;
                 function doNext() { if((--count)<=0) step(); }
                 
@@ -754,8 +752,8 @@ class stitch {
                     var ad = _this._ads[adName];
                     
                     var url = 'http://localhost:3333/' + ad.filename + '.html?end=1';
-                    var png = ad.outputHTML.replace('.html', '.png').replace('/public', '/.backupJPGs');
-                    var pngTemp = png.replace(".png", ".temp.png");
+                    var pngDest = ad.outputHTML.replace('.html', '.png').replace('/public', '/.backupJPGs');
+                    var pngTemp = pngDest.replace(".png", ".temp.png");
                     
                     var phantom = require('phantom');
                     var PNGCrop = require('png-crop');
@@ -784,8 +782,8 @@ class stitch {
                             sitepage.property('clipRect', {top:0, left:0, width: ad.width, height: ad.height});
                             
                             setTimeout(() => {
-                                trace("Rendering... " + pngTemp);
-                                sitepage.render(pngTemp, {format: 'png'});
+                                trace("Rendering... " + pngDest);
+                                sitepage.render(pngDest, {format: 'png'});
                             }, time);
                             
                             return true;
@@ -795,8 +793,12 @@ class stitch {
                             setTimeout(() => {
                                 sitepage.close();
                                 phInstance.exit();
+
+                                trace("Skipping PNGCrop...".yellow);
+                                return doNext();
+
                                 if(fileExists(pngTemp)) {
-                                    PNGCrop.crop(pngTemp, png, {width: ad.width, height: ad.height}, (err) => {
+                                    PNGCrop.crop(pngTemp, pngDest, {width: ad.width, height: ad.height}, (err) => {
                                         if(err) {
                                             trace("Error cropping: " + pngTemp);
                                             throw err;
@@ -812,7 +814,7 @@ class stitch {
                             }, time+200);
                         })
                         .catch(error => {
-                            console.log(error);
+                            console.error(error);
                             phInstance.exit();
                             doNext();
                         });
