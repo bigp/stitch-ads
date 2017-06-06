@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+
+var audiohub = require("../lib/audiohub.js");
+var audio = new audiohub();
+
+if(process.argv[process.argv.length-1].match('audiohub')) {
+	console.log("Try: audiohub path_to_a_mp3.mp3");
+	process.exit(1);
+}
+audio.play(process.argv[process.argv.length-1], function() {
+	process.exit(1);
+});

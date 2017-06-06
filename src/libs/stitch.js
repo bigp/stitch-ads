@@ -11,11 +11,13 @@ const uglyCSS = require("uglifycss");
 const anymatch = require("anymatch");
 const mkdirp = require('mkdirp');
 const Datauri = global.Datauri = require('datauri');
-const audiohub = require('audiohub');
+const audiohub = require('./audiohub');
 const play = new audiohub();
 const ncp = require('ncp');
 const fs = require('fs');
 const yargs = require('yargs');
+const webshot = require('webshot');
+const inquirer = require('inquirer');
 
 //Networking:
 const express = require('express');
@@ -63,6 +65,18 @@ function initializeFolders() {
     trace("Finding filenames (txt file)...");
     var textFiles = fileFilter(__project, file => /\.txt/.test(file));
     var __ads = __project + "/ads/";
+	
+	var questions = [
+		{
+			type: 'checkbox',
+			message: "Create these subfolders for each ads?",
+			name: 'subfolders',
+			choices: [
+				{name: 'images', checked: true},
+				{name: 'jpegs', checked: true}
+			]
+		}
+	];
     
     function parseTextFileForFolderNames(file) {
         var content = fileRead(file);
@@ -71,13 +85,48 @@ function initializeFolders() {
             .map(file => file.trim())
             .filter(file => /^(en|fr)_[0-9]*x[0-9]*/.test(file));
         
-        filenames.forEach(file => {
-            trace("Making sub-folder: " + file);
-            mkdirp(__ads + file);
+		filenames.forEach(file => {
+			var adDir = __ads + file;
+			
+			var doesExists = fileExists(adDir) ? '[x] ' : '[ ] ';
+            trace(doesExists + file);
         });
-        
-        process.exit();
+		
+		trace(" ");
+		
+		inquirer
+			.prompt(questions)
+			.then(answers => {
+				makeSubfolders(filenames, answers.subfolders, () => {
+					process.exit();
+				});
+			});
     }
+	
+	function makeSubfolders(filenames, subdirs, cb) {
+		var count = filenames.length;
+		
+		filenames.forEach(file => {
+			var adDir = __ads + file;
+			
+			trace("Making sub-folder: " + file);
+			mkdirp(adDir, (err) => {
+				makeOtherSubfolders(adDir);
+				
+				if((--count)<=0) {
+					setTimeout(() => {
+						cb && cb();
+					}, 250)
+				}
+			});
+		});
+		
+		function makeOtherSubfolders(adDir) {
+			subdirs.forEach( subdir => {
+				mkdirp(adDir+"/"+subdir);
+			})
+		}
+	}
     
     if(textFiles.length==0) {
         throw new Error("Missing text files defining all the ads filenames!");
@@ -754,70 +803,47 @@ class stitch {
                     var url = 'http://localhost:3333/' + ad.filename + '.html?end=1';
                     var pngDest = ad.outputHTML.replace('.html', '.png').replace('/public', '/.backupJPGs');
                     var pngTemp = pngDest.replace(".png", ".temp.png");
+                    //var PNGCrop = require('png-crop');
                     
-                    var phantom = require('phantom');
-                    var PNGCrop = require('png-crop');
-                    var sitepage = null, phInstance = null;
-                    
-                    trace("Loading... " + url);
+                    trace("Rendering... ".yellow + url);
 
-                    var time = commands.render;
-                    phantom.create()
-                        .then(instance => {
-                            phInstance = instance;
-                            return instance.createPage();
-                        })
-                        .then(page => {
-                            sitepage = page;
-                            //sitepage.viewportSize = {width: ad.width, height: ad.height};
-                            //sitepage.viewportSize = {width: ad.width, height: ad.height};
-                            //sitepage.clipRect = {top:0, left:0, width: 300, height: 250}; //ad.width ad.height
-                            
-                            return page.open(url);
-                        })
-                        .then(status => {
-                            console.log(status);
-                            trace(("Waiting... "+time+"ms").yellow);
+                    var sizeOptions = {width: ad.width, height: ad.height};
+                    var webOptions = {
+                        screenSize: sizeOptions,
+                        shotSize: sizeOptions,
+                        renderDelay: commands.render || 500,
+                        userAgent: 'Chrome/37.0.2062.120',
+                        phantomConfig: {
+                            'ignore-ssl-errors': true
+                        }
+                    };
 
-                            sitepage.property('clipRect', {top:0, left:0, width: ad.width, height: ad.height});
-                            
-                            setTimeout(() => {
-                                trace("Rendering... " + pngDest);
-                                sitepage.render(pngDest, {format: 'png'});
-                            }, time);
-                            
-                            return true;
-                            //return sitepage.property('content');
-                        })
-                        .then(content => {
-                            setTimeout(() => {
-                                sitepage.close();
-                                phInstance.exit();
+                    webshot(url, pngDest, webOptions, function(err) {
+                        if(err) {
+                            console.error("Could not load / take screenshot of URL: ".red + url + "\n at\n" + pngTemp);
+                            console.error(err);
+                            return doNext();
+                        }
 
-                                trace("Skipping PNGCrop...".yellow);
-                                return doNext();
+                        trace("Completed Screenshot: " + pngDest);
+                        doNext();
 
-                                if(fileExists(pngTemp)) {
-                                    PNGCrop.crop(pngTemp, pngDest, {width: ad.width, height: ad.height}, (err) => {
-                                        if(err) {
-                                            trace("Error cropping: " + pngTemp);
-                                            throw err;
-                                        }
-                                        trace("PNG trimmed -OK-");
-                                        setTimeout(() => G.fs.unlink(pngTemp), 250);
-                                        doNext();
-                                    });
-                                } else {
-                                    trace("Could not trim PNG yet...".red);
-                                    doNext();
-                                }
-                            }, time+200);
-                        })
-                        .catch(error => {
-                            console.error(error);
-                            phInstance.exit();
-                            doNext();
-                        });
+                        //trace("Cropping... ".yellow + pngDest);
+                        //if(fileExists(pngTemp)) {
+                        //    PNGCrop.crop(pngTemp, pngDest, {width: ad.width, height: ad.height}, (err) => {
+                        //        if(err) {
+                        //            trace("Error cropping: " + pngTemp);
+                        //            throw err;
+                        //        }
+                        //        trace("PNG trimmed -OK-");
+                        //        setTimeout(() => G.fs.unlink(pngTemp), 250);
+                        //        doNext();
+                        //    });
+                        //} else {
+                        //    trace("Could not trim PNG yet...".red);
+                        //    doNext();
+                        //}
+                    });
                 });
             },
             

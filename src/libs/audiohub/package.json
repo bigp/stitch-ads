@@ -1,0 +1,40 @@
+{
+  "name": "audiohub",
+  "version": "0.1.0",
+  "description": "Command Line Audio Playback From The Terminal Or Your NodeJS App",
+  "main": "index.js",
+  "bin": {
+    "audiohub": "./bin/audiohub"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Active 9 LLC.",
+  "license": "MIT",
+  "dependencies": {},
+  "directories": {
+    "example": "examples"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/active9/audiohub"
+  },
+  "keywords": [
+    "audio",
+    "player",
+    "playback",
+    "mp3",
+    "wav",
+    "mplayer",
+    "command",
+    "line",
+    "terminal",
+    "play",
+    "sound",
+    "music"
+  ],
+  "bugs": {
+    "url": "https://github.com/active9/audiohub/issues"
+  },
+  "homepage": "https://github.com/active9/audiohub"
+}
