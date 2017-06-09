@@ -34,6 +34,7 @@ const commands = yargs
         .alias('v', 'verbose')
         .alias('o', 'overwrite')
         .alias('z', 'zip')
+        .alias('q', 'quick')
         .alias('t', 'port')
         .alias('i', 'init')   
         .number('r')
@@ -53,6 +54,7 @@ function playSound(str) {
 }
 
 const isZip = commands.zip;
+const isQuick = commands.quick;
 const isProd = commands.production || isZip;
 const exceptionStr = isProd ? '/_dev/' : '/_prod/';
 
@@ -506,7 +508,9 @@ class stitch {
 
             //Copy any assets folders / files per ads:
             (step) => {
-                var count = adNames.length;
+                if(isQuick) return step();
+				
+				var count = adNames.length;
                 function doNext() { if((--count)<=0) step(); }
                 
                 adNames.forEach(adName => {
@@ -532,7 +536,9 @@ class stitch {
             },
 
             (step) => {
-                //Create atlas of COMMON images:
+                if(isQuick) return step();
+				
+				//Create atlas of COMMON images:
 				var commonImagesPath = __project + '/_common/images';
                 if(!fileExists(commonImagesPath)) {
                     commonImages = [];
@@ -546,7 +552,9 @@ class stitch {
             
             //Create a spritesheet/atlas & JS coordinate file for each ads' images.
             (step) => {
-                var count = adNames.length;
+                if(isQuick) return step();
+				
+				var count = adNames.length;
                 function doNext() { if((--count)<=0) step(); }
                 
                 adNames.forEach(adName => {
@@ -636,7 +644,9 @@ class stitch {
             
             //Execute any 'pre-compilation' callbacks:
             (step) => {
-                if(_this.config.preCompileEach) {
+                if(isQuick) return step();
+				
+				if(_this.config.preCompileEach) {
                     adNames.forEach(adName => {
                         var ad = _this._ads[adName];
                         _this.config.preCompileEach(ad);
@@ -648,7 +658,9 @@ class stitch {
             
             //Create the HTML file for each ads:
             (step) => {
-                var count = adNames.length;
+                if(isQuick) return step();
+				
+				var count = adNames.length;
 
                 trace("Create HTML files...");
 
@@ -749,7 +761,8 @@ class stitch {
             },
 
             (step) => {
-
+				if(isQuick) return step();
+				
                 if(_this.config.postCompileEach) {
                     adNames.forEach(adName => {
                         var ad = _this._ads[adName];
@@ -775,6 +788,14 @@ class stitch {
                     var zip = new NodeZip();
                     ad.outputZIP = ad.outputHTML.replace('.html', '.zip');
                     
+					if(!ad.outputHTMLContent) {
+						if(!fileExists(ad.outputHTML)) {
+							throw new Error("Missing HTML file! " + ad.outerHTML);
+						}
+						
+						ad.outputHTMLContent = fileRead(ad.outputHTML);
+					}
+					
                     zip.file(htmlName, ad.outputHTMLContent);
                     var data = zip.generate({base64:false,compression:'DEFLATE'});
                     fs.writeFile(ad.outputZIP, data, 'binary', (err) => {
@@ -788,7 +809,7 @@ class stitch {
             },
             
             (step) => {
-                if(!commands.render || commands.render<1) {
+                if(isQuick || !commands.render || commands.render<1) {
                     return step();
                 }
                 
@@ -848,6 +869,8 @@ class stitch {
             },
             
             (step) => {
+				if(isQuick) return step();
+				
                 tryStepFunc(_this.config.postCompile, step);
             },
             
