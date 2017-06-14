@@ -26,7 +26,7 @@ const port = 3333;
 
 global.__stitch = path.resolve( __dirname, '..' ).fixSlashes();
 
-const MATCHER_ADS_NAMES = anymatch("^(en|fr)_[0-9]*x[0-9]*");
+const MATCHER_ADS_NAMES = anymatch("^(en|fr)([a-zA-Z_]*)[0-9]*x[0-9]*");
 
 const commands = yargs
         .alias('p','production')
@@ -85,7 +85,7 @@ function initializeFolders() {
         var lines = content.split('\r');
         var filenames = lines
             .map(file => file.trim())
-            .filter(file => /^(en|fr)_[0-9]*x[0-9]*/.test(file));
+            .filter(file => MATCHER_ADS_NAMES(file));
         
 		filenames.forEach(file => {
 			var adDir = __ads + file;
@@ -303,7 +303,7 @@ class stitch {
         _this._assembleDir = dirOfDirs;
         _this._assembleConfig = __.merge({js: ['**/*.js'], css: ['**/*.css']}, config);
         
-        var rgxDimensions = /[0-9]*x[0-9]*/;
+        var rgxDimensions = /[0-9]*x[0-9]*/i;
         
         function recursiveDirFind(dirsStr) {
             var dirs = getDirs(dirsStr);
