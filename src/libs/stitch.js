@@ -18,13 +18,14 @@ const fs = require('fs');
 const yargs = require('yargs');
 const webshot = require('webshot');
 const inquirer = require('inquirer');
+const xml2js = global.xml2js = require('xml2js');
 
 //Networking:
 const express = require('express');
 const app = express();
 const port = 3333;
 
-global.__stitch = path.resolve( __dirname, '..' ).fixSlashes();
+global.__stitch = path.resolve( __dirname, '../../' ).fixSlashes();
 
 const MATCHER_ADS_NAMES = anymatch("^(en|fr)([a-zA-Z_]*)[0-9]*x[0-9]*");
 
@@ -44,7 +45,7 @@ function WARN(str)  { commands.verbose >= 0 && trace(str.red); }
 function INFO(str)  { commands.verbose >= 1 && trace(str.cyan); }
 function DEBUG(str) { commands.verbose >= 2 && trace(str.yellow); }
 
-const __assets = path.resolve(__stitch, 'assets/').fixSlashes() +'/';
+const __assets = path.resolve(__stitch, 'src/assets/').fixSlashes() +'/';
 trace(__assets);
 const ASSETS = wrapKeysWith(require('./assets'), __assets);
 
@@ -143,6 +144,22 @@ function initializeFolders() {
         });
         
     } else parseTextFileForFolderNames(textFiles[0]);
+}
+
+function populateHelperFiles() {
+	//TODO:
+	var __git = __project+'/.git';
+	if(!fileExists(__git)) {
+		exec('git', 'init');
+	}
+	
+	var __helperFiles = __stitch + '/helper-files';
+	
+	ncp(__helperFiles, __project, {clobber: false}, (err) => {
+		if(err) throw err;
+		
+		//trace("Helper files copied ok.");
+	})
 }
 
 global.pngquantCompress = function pngquantCompress( img, quality, cb ) {
@@ -346,6 +363,8 @@ class stitch {
             _this.watchStop();
             return initializeFolders();
         }
+		
+		populateHelperFiles();
         
         //This helps to sort the ad-names like Windows Explorer's file list does:
         adNames.sort((a,b)=>{
