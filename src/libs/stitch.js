@@ -150,7 +150,12 @@ function populateHelperFiles() {
 	//TODO:
 	var __git = __project+'/.git';
 	if(!fileExists(__git)) {
-		exec('git', 'init');
+		try {
+			exec('git', ['init']);
+		} catch(err) {
+			trace("You likely forgot to run 'git init' in your folder.".red);
+			process.exit(1);
+		}
 	}
 	
 	var __helperFiles = __stitch + '/helper-files';
