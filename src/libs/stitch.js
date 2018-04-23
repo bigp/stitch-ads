@@ -847,8 +847,6 @@ class stitch {
                     
                     var url = 'http://localhost:3333/' + ad.filename + '.html?end=1';
                     var pngDest = ad.outputHTML.replace('.html', '.png').replace('/public', '/.backupJPGs');
-                    var pngTemp = pngDest.replace(".png", ".temp.png");
-                    //var PNGCrop = require('png-crop');
                     
                     trace("Rendering... ".yellow + url);
 
@@ -857,7 +855,9 @@ class stitch {
                         screenSize: sizeOptions,
                         shotSize: sizeOptions,
                         renderDelay: commands.render || 500,
+						defaultWhiteBackground: true,
                         userAgent: 'Chrome/37.0.2062.120',
+						errorIfJSException: true,
                         phantomConfig: {
                             'ignore-ssl-errors': true
                         }
@@ -865,29 +865,13 @@ class stitch {
 
                     webshot(url, pngDest, webOptions, function(err) {
                         if(err) {
-                            console.error("Could not load / take screenshot of URL: ".red + url + "\n at\n" + pngTemp);
+                            console.error("Could not load / take screenshot of URL: ".red + url + "\n at\n" + pngDest);
                             console.error(err);
                             return doNext();
                         }
 
                         trace("Completed Screenshot: " + pngDest);
                         doNext();
-
-                        //trace("Cropping... ".yellow + pngDest);
-                        //if(fileExists(pngTemp)) {
-                        //    PNGCrop.crop(pngTemp, pngDest, {width: ad.width, height: ad.height}, (err) => {
-                        //        if(err) {
-                        //            trace("Error cropping: " + pngTemp);
-                        //            throw err;
-                        //        }
-                        //        trace("PNG trimmed -OK-");
-                        //        setTimeout(() => G.fs.unlink(pngTemp), 250);
-                        //        doNext();
-                        //    });
-                        //} else {
-                        //    trace("Could not trim PNG yet...".red);
-                        //    doNext();
-                        //}
                     });
                 });
             },

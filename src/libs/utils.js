@@ -391,3 +391,7 @@ if(!"".contains) {
 
 global.__project = process.cwd().fixSlashes();
 global.__public = __project + '/public';
+
+Array.prototype.has = function(item) {
+	return this.indexOf(item)>-1;
+}
