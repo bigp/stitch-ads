@@ -14,7 +14,7 @@ const Datauri = global.Datauri = require('datauri');
 const audiohub = require('./audiohub');
 const play = new audiohub();
 const ncp = require('ncp');
-const fs = require('fs');
+const fs = require('fs-extra');
 const yargs = require('yargs');
 const webshot = require('webshot');
 const inquirer = require('inquirer');
@@ -46,7 +46,8 @@ function INFO(str)  { commands.verbose >= 1 && trace(str.cyan); }
 function DEBUG(str) { commands.verbose >= 2 && trace(str.yellow); }
 
 const __assets = path.resolve(__stitch, 'src/assets/').fixSlashes() +'/';
-trace(__assets);
+const __ads = __project + "/ads/";
+
 const ASSETS = wrapKeysWith(require('./assets'), __assets);
 
 //const soundsLoaded = {};
@@ -67,8 +68,7 @@ var lastSettings = jsonTry(lastSettingsFile, {
 function initializeFolders() {
     trace("Finding filenames (txt file)...");
     var textFiles = fileFilter(__project, file => /\.txt/.test(file));
-    var __ads = __project + "/ads/";
-	
+
 	var questions = [
 		{
 			type: 'checkbox',
@@ -244,12 +244,13 @@ class stitch {
                     //Skip re-builds for any files created in public folder:
                     var partpath = fullpath.fixSlashes().replace(__project, '');
                     var filename = partpath.split('/').pop();
-                    var isPublic = partpath.indexOf('/public/')>-1;
-                    var isHidden = filename.indexOf('.')==0 || partpath.indexOf('/.')>-1;
-                    var isBadExt = badExtensions.indexOf(filename.split('.').pop())>-1;
+                    var isPublic = partpath.has('/public/');
+                    var isHidden = filename.indexOf('.')==0 || partpath.has('/.');
+                    var isBadExt = badExtensions.has(filename.split('.').pop());
                     var isBadPath = false;
+
                     badPaths.forEach( bad => {
-                        if(fullpath.indexOf(bad)>-1) {
+                        if(fullpath.has(bad)) {
                             trace(("BAD PATH!!! " + fullpath).red);
                             isBadPath = true;
                         }
@@ -334,7 +335,7 @@ class stitch {
                 var filename = fullpath.replace(_this._assembleDir+'/','');
                 var shortname = fullpath.split('/').pop();
                 
-                if (isDirEmpty(fullpath) || filename.indexOf('.')==0) return;
+                if (isDirEmpty(fullpath) || filename.indexOf('.')===0) return;
                 if(!MATCHER_ADS_NAMES(shortname)) {
                     return recursiveDirFind(fullpath); 
                 }
@@ -364,7 +365,7 @@ class stitch {
         
         var adNames = __.keys(_this._ads);
         
-        if(adNames.length==0 || commands.init) {
+        if(!adNames.length || commands.init) {
             _this.watchStop();
             return initializeFolders();
         }
@@ -372,7 +373,7 @@ class stitch {
 		populateHelperFiles();
         
         //This helps to sort the ad-names like Windows Explorer's file list does:
-        adNames.sort((a,b)=>{
+        adNames.sort((a,b) => {
             var adA = _this._ads[a];
             var adB = _this._ads[b];
             var pathA = adA.fullpath.replace(__project, '');
@@ -408,8 +409,35 @@ class stitch {
             
             if(isNaN(result.ad) || result.ad<0 || result.ad >= adNames.length) {
                 trace("Building All!");
-                playSound(ASSETS.SOUNDS.BUILD_ALL);
-                _this._primaryAd = null;
+
+				const adExists = adNames.map(f => {
+					const adFile = __ads + f + '/ad.js';
+					return fs.exists(adFile)
+						.then(bool => bool ? {file: f, path: adFile} : null);
+				});
+
+				Promise.all(adExists)
+                    .then(results => {
+                        const adsValid = {};
+
+						results.forEach( f => {
+						    if(!f) return;
+
+							adsValid[f.file] = _this._ads[f.file];
+                        });
+
+						// Now, save the new list of ads that actually does exists:
+						_this._ads = adsValid;
+
+                        trace(adsValid);
+
+						playSound(ASSETS.SOUNDS.BUILD_ALL);
+						_this._primaryAd = null;
+
+						_this.build();
+                    });
+
+                return;
             } else {
                 var adName = adNames[lastSettings.ad = result.ad];
                 _this._primaryAd = _this._ads[adName];
@@ -436,19 +464,20 @@ class stitch {
         if(_this._primaryAd) {
             trace("Serving '{0}' on http://localhost:3333/\n\n".format(_this._primaryAd.filename).yellow);
 
-            adNames = adNames.filter(adName => adName==_this._primaryAd.filename);
+            adNames = adNames.filter(adName => adName===_this._primaryAd.filename);
         }
         trace((isProd ? "--PROD--" : "--DEV--") + " Building {0} ads...".format(adNames.length));
         
         async.series([
-            // Get the INDEX.HTML file and it's content, wherever it's first found in the project directory:
+            // Get the INDEX.HTML file and it's content, wherever
+            // it's first found in the project directory:
             (step) => {
                 var templateIndexes = fileFilter(__project, (file, fullpath) => {
-                    if(fullpath.indexOf('/public')>-1 || fullpath.indexOf(exceptionStr)>-1) return false;
-                    return file=="index.html";
+                    if(fullpath.has('/public') || fullpath.has(exceptionStr)) return false;
+                    return file==="index.html";
                 });
                 
-                if(templateIndexes==null || templateIndexes.length==0) {
+                if(!templateIndexes || !templateIndexes.length) {
                     throw new Error("No template index.html file found!");
                 }
                 
@@ -690,7 +719,7 @@ class stitch {
 
                 //For each ads, collect the JS and CSS files:
                 adNames.forEach(adName => {
-                    if(count==0) {
+                    if(count===0) {
                         throw new Error("Count reached zero already? " + adName);
                     }
                     
@@ -728,15 +757,15 @@ class stitch {
                     };
                     
                     __.keys(confCopy).forEach( type => {
-                        var matcherPattern = replaceBrackets(confCopy[type], ad);
+                        const matcherPattern = replaceBrackets(confCopy[type], ad);
 
-                        var matcher = anymatch(matcherPattern);
+						const matcher = anymatch(matcherPattern);
 
-                        var files = filesByType[type] = fileFilter(__project, (file, fullpath) => {
-                            return fullpath.indexOf(exceptionStr)==-1 && (matcher(file) || matcher(fullpath));
+						const files = filesByType[type] = fileFilter(__project, (file, fullpath) => {
+                            return !fullpath.has(exceptionStr) && (matcher(file) || matcher(fullpath));
                         });
 
-                        if(files.length==0) {
+                        if(!files.length) {
                             ad[type] = '';
                             return;
                         }
@@ -744,8 +773,8 @@ class stitch {
                         //Prioritize the 'common' files first above the ads-specific files:
                         files.sort((a, b) => {
                             var c = '_common';
-                            if(a.contains(c) && !b.contains(c)) return -1;
-                            if(!a.contains(c) && b.contains(c)) return 1;
+                            if(a.has(c) && !b.has(c)) return -1;
+                            if(!a.has(c) && b.has(c)) return 1;
                             return 0;
                         });
                         
@@ -756,7 +785,7 @@ class stitch {
 
                         var externalFile = _this.config[type + 'File'];
                         if(externalFile) {
-                            var externalFullpath = __public + "/" + externalFile;
+                            var externalFullpath = __project + "/" + externalFile;
                             fileWrite(externalFullpath, typeCode, (err) => {
                                 if(err) {
                                     trace("Could not write '{0}' file to: ".format(type).red + "\n" + externalFullpath);

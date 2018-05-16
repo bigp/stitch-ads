@@ -355,43 +355,38 @@ global.phpExec = function(file, cb) {
 ///////////////////////////////////////////////////////
 
 // First, checks if it isn't implemented yet.
-if (!"".format) {
-	String.prototype.format = function() {
-		var args = arguments;
+
+__.extend(String.prototype, {
+	format() {
+		const args = arguments;
 		return this.replace(/{(\d+)}/g, function(match, id) {
 			return typeof args[id] != 'undefined' ? args[id] : match;
 		});
-	};
-}
+	},
 
-if(!"".fixSlashes) {
-	String.prototype.fixSlashes = function() {
+	fixSlashes() {
 		return this.replace(/\\/g, '/');
-	};
-}
+	},
 
-if(!"".endsWith) {
-	String.prototype.endsWith = function(suffix) {
+	endsWith(suffix) {
 		return this.indexOf(suffix, this.length - suffix.length) !== -1;
-	};
-}
+	},
 
-if(!"".mustEndWith) {
-	String.prototype.mustEndWith = function(suffix) {
+	mustEndWith(suffix) {
 		if(this.endsWith(suffix)) return this;
 		return this + suffix;
-	};
-}
+	},
 
-if(!"".contains) {
-	String.prototype.contains = function(str) {
+	has(str) {
 		return this.indexOf(str)>-1;
-	};
-}
+	}
+});
+
+__.extend(Array.prototype, {
+	has(str) {
+		return this.indexOf(str)>-1;
+	}
+});
 
 global.__project = process.cwd().fixSlashes();
 global.__public = __project + '/public';
-
-Array.prototype.has = function(item) {
-	return this.indexOf(item)>-1;
-}
