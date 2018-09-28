@@ -27,7 +27,7 @@ const port = 3333;
 
 global.__stitch = path.resolve( __dirname, '../../' ).fixSlashes();
 
-const MATCHER_ADS_NAMES = anymatch("^(en|fr)([a-zA-Z_]*)[0-9]*x[0-9]*");
+const MATCHER_ADS_NAMES = anymatch("^([a-zA-Z_0-9]*)[0-9]*x[0-9]*");
 
 const commands = yargs
         .alias('p','production')
@@ -57,6 +57,7 @@ function playSound(str) {
 
 const isZip = commands.zip;
 const isQuick = commands.quick;
+const isRender = commands.render > 0;
 const isProd = commands.production || isZip;
 const exceptionStr = isProd ? '/_dev/' : '/_prod/';
 
@@ -208,6 +209,8 @@ function tryStepFunc(func, step) {
     }
 }
 
+var lastFilesChanged = [];
+
 //Stitch Constructor:
 class stitch {
     constructor() {
@@ -238,29 +241,43 @@ class stitch {
                 },
                 
                 change(changeType, fullpath) {
-                    var badExtensions = "ts,less,hx".split(',');
-                    var badPaths = ["/__files"];
+					if(isProd || isRender) {
+						return trace("Watcher disabled in Production & Rendering mode.".red);
+					}
+					fullpath = fullpath.fixSlashes();
+					
+                    var badExtensions = "ts,less,hx,png,jpeg,jpg".split(',');
+                    var badPaths = "/__files/,/_common/,/bat/,/public/".split(',');
                     
                     //Skip re-builds for any files created in public folder:
-                    var partpath = fullpath.fixSlashes().replace(__project, '');
+                    var partpath = fullpath.replace(__project, '');
                     var filename = partpath.split('/').pop();
-                    var isPublic = partpath.has('/public/');
                     var isHidden = filename.indexOf('.')==0 || partpath.has('/.');
                     var isBadExt = badExtensions.has(filename.split('.').pop());
                     var isBadPath = false;
 
-                    badPaths.forEach( bad => {
-                        if(fullpath.has(bad)) {
-                            trace(("BAD PATH!!! " + fullpath).red);
-                            isBadPath = true;
-                        }
-                    });
+                    badPaths.forEach( bad => {if(fullpath.has(bad)) isBadPath = true});
                     
-                    if(!_this._isReady || isPublic || isHidden || isBadExt || isBadPath) return;
+                    if(!_this._isReady || isHidden || isBadExt || isBadPath) return;
                     
-                    trace("File changed: " + fullpath);
-                    
-                    _this.prepareBuild();
+                    var hash = md5(fileRead(fullpath));
+
+                    var found = lastFilesChanged.find(f => f.file == fullpath);
+
+					if(found) {
+					    if(found.hash == hash) return trace("File didn't actually change: ".magenta + '#' + hash);
+
+					    lastFilesChanged.remove(found);
+					}
+
+					lastFilesChanged.push({file: fullpath, hash: hash});
+
+					setTimeout(() => {
+						_this.prepareBuild();
+
+						trace(("File changed: " + fullpath).green + ' #' + hash);
+
+					}, _this.config.delay || 500);
                 }
             },
             
@@ -303,16 +320,8 @@ class stitch {
     //This signals the process to re-build the files in /public/ after a brief delay.
     prepareBuild() {
         var _this = this;
-        
-        if(_this._buildPending!=null) {
-            clearTimeout(_this._buildPending);
-        }
 
-
-        _this._buildPending = setTimeout(()=> {
-            _this._buildPending = null;
-            _this.build();
-        }, _this.config && _this.config.delay!=null ? _this.config.delay  : 250);
+		_this.build();
     }
     
     watchStop() {

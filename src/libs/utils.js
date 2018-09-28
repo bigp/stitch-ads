@@ -7,6 +7,7 @@ const async = G.async = require('async');
 const path = G.path = require('path');
 const pad = G.pad = require('pad');
 const fs = G.fs = require('fs');
+const crypto = require('crypto');
 
 global.EventEmitter =  require('events');
 global.__ = require('lodash');
@@ -144,6 +145,10 @@ global.checkFilesSum = function(ad, prop, files) {
 	}
 	return false;
 };
+
+global.md5 = function(data) {
+	return crypto.createHash('md5').update(data).digest("hex");
+}
 
 global.fileFilter = function(dir, filterFunc) {
 	if(!filterFunc) return;
@@ -385,6 +390,11 @@ __.extend(String.prototype, {
 __.extend(Array.prototype, {
 	has(str) {
 		return this.indexOf(str)>-1;
+	},
+	remove(item) {
+		var id = this.indexOf(item);
+		if(id>-1) return this.splice(id, 1);
+		return false;
 	}
 });
 
