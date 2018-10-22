@@ -84,7 +84,7 @@ function initializeFolders() {
     
     function parseTextFileForFolderNames(file) {
         var content = fileRead(file);
-        var lines = content.split('\r');
+        var lines = content.replace( /(\n|\r)/g, '|' ).split('|');
         var filenames = lines
             .map(file => file.trim())
             .filter(file => MATCHER_ADS_NAMES(file));
@@ -101,6 +101,7 @@ function initializeFolders() {
 		inquirer
 			.prompt(questions)
 			.then(answers => {
+				trace("Creating? " + filenames)
 				makeSubfolders(filenames, answers.subfolders, () => {
 					process.exit();
 				});
