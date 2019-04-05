@@ -52,7 +52,7 @@ const ASSETS = wrapKeysWith(require('./assets'), __assets);
 
 //const soundsLoaded = {};
 function playSound(str) {
-    play.play(str, ()=>{});
+    //play.play(str, ()=>{});
 }
 
 const isZip = commands.zip;
@@ -60,6 +60,7 @@ const isQuick = commands.quick;
 const isRender = commands.render > 0;
 const isProd = commands.production || isZip;
 const exceptionStr = isProd ? '/_dev/' : '/_prod/';
+var isBatching = false;
 
 const lastSettingsFile = __project + "/.git/stitch-last.json";
 var lastSettings = jsonTry(lastSettingsFile, {
@@ -101,8 +102,8 @@ function initializeFolders() {
 		inquirer
 			.prompt(questions)
 			.then(answers => {
-				trace("Creating? " + filenames)
 				makeSubfolders(filenames, answers.subfolders, () => {
+					trace("EXIT...");
 					process.exit();
 				});
 			});
@@ -119,9 +120,7 @@ function initializeFolders() {
 				makeOtherSubfolders(adDir);
 				
 				if((--count)<=0) {
-					setTimeout(() => {
-						cb && cb();
-					}, 250)
+					setTimeout(cb, 250)
 				}
 			});
 		});
@@ -242,7 +241,7 @@ class stitch {
                 },
                 
                 change(changeType, fullpath) {
-					if(isProd || isRender) {
+					if(isProd || isRender || isBatching) {
 						return trace("Watcher disabled in Production & Rendering mode.".red);
 					}
 					fullpath = fullpath.fixSlashes();
@@ -386,10 +385,9 @@ class stitch {
         adNames.sort((a,b) => {
             var adA = _this._ads[a];
             var adB = _this._ads[b];
-            var pathA = adA.fullpath.replace(__project, '');
-            var pathB = adB.fullpath.replace(__project, '');
-            pathA = pathA.split('/').slice(0, -1).join('/');
-            pathB = pathB.split('/').slice(0, -1).join('/');
+            var pathA = adA.fullpath.split('/ads/').pop();
+            var pathB = adB.fullpath.split('/ads/').pop();
+			
             if(pathA!=pathB) return pathA.localeCompare(pathB);
             
             var wDiff = adA.width - adB.width;
@@ -413,12 +411,33 @@ class stitch {
             if(err) throw err;
 
             _this._isReady = true;
+			
+			var ID = result.ad;
             
             //cb && cb(result);
-            if(!result.ad) result.ad = 0;
+            if(!ID) ID = 0;
             
-            if(isNaN(result.ad) || result.ad<0 || result.ad >= adNames.length) {
-                trace("Building All!");
+            if(isNaN(ID) || ID<0 || ID >= adNames.length) {
+                _this._primaryAd = null;
+				isBatching = true;
+				
+				const firstChar = ID[0];
+				
+				if(firstChar=='*') {
+					ID = ID.substr(1);
+					
+					var beforeLen = adNames.length;
+					
+					adNames = adNames.filter( a => a.has(ID) );
+
+					const ratio = " (" + adNames.length + '/' + beforeLen + ")";
+					
+					trace("Building only ads matching: " + ID + ratio.green);
+					
+					process.exit();
+				} else {
+					trace("Building All!");
+				}
 
 				const adExists = adNames.map(f => {
 					const adFile = __ads + f + '/ad.js';
@@ -449,7 +468,7 @@ class stitch {
 
                 return;
             } else {
-                var adName = adNames[lastSettings.ad = result.ad];
+                var adName = adNames[lastSettings.ad = ID];
                 _this._primaryAd = _this._ads[adName];
 
                 playSound(ASSETS.SOUNDS.BUILD_SINGLE);
