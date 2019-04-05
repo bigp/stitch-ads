@@ -433,8 +433,6 @@ class stitch {
 					const ratio = " (" + adNames.length + '/' + beforeLen + ")";
 					
 					trace("Building only ads matching: " + ID + ratio.green);
-					
-					process.exit();
 				} else {
 					trace("Building All!");
 				}
