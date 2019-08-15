@@ -27,7 +27,7 @@ const port = 3333;
 
 global.__stitch = path.resolve( __dirname, '../../' ).fixSlashes();
 
-const MATCHER_ADS_NAMES = anymatch("^([a-zA-Z_0-9]*)[0-9]*x[0-9]*");
+const MATCHER_ADS_NAMES = anymatch("^([a-zA-Z_0-9\/\\]*)[0-9]*x[0-9]*");
 
 const commands = yargs
         .alias('p','production')
@@ -88,7 +88,7 @@ function initializeFolders() {
         var lines = content.replace( /(\n|\r)/g, '|' ).split('|');
         var filenames = lines
             .map(file => file.trim())
-            .filter(file => MATCHER_ADS_NAMES(file));
+            //.filter(file => MATCHER_ADS_NAMES(file));
         
 		filenames.forEach(file => {
 			var adDir = __ads + file;
@@ -101,7 +101,9 @@ function initializeFolders() {
 		
 		inquirer
 			.prompt(questions)
-			.then(answers => {
+            .then( answers => {
+                trace( answers );
+
 				makeSubfolders(filenames, answers.subfolders, () => {
 					trace("EXIT...");
 					process.exit();
@@ -116,7 +118,9 @@ function initializeFolders() {
 			var adDir = __ads + file;
 			
 			trace("Making sub-folder: " + file);
-			mkdirp(adDir, (err) => {
+            mkdirp( adDir, ( err ) => {
+                if ( err ) trace( "Error: ", err );
+                
 				makeOtherSubfolders(adDir);
 				
 				if((--count)<=0) {
@@ -134,17 +138,19 @@ function initializeFolders() {
     
     if(textFiles.length==0) {
         throw new Error("Missing text files defining all the ads filenames!");
-    } else if(textFiles.length>1) {
-        textFiles.forEach( (file, id) => trace(id + ": " + file));
-        trace("Which file should this use?");
-        prompt.start();
-        prompt.get({name: 'whichFile'}, (err, result) => {
-            if(err) throw err;
-            result.whichFile = parseInt(result.whichFile);
-            parseTextFileForFolderNames(textFiles[result.whichFile]);
-        });
+    } else if(textFiles.length==1) {
+		return parseTextFileForFolderNames(textFiles[0]);
+	}
         
-    } else parseTextFileForFolderNames(textFiles[0]);
+    textFiles.forEach( (file, id) => trace(id + ": " + file));
+	
+	trace("Which file should this use?");
+	prompt.start();
+	prompt.get({name: 'whichFile'}, (err, result) => {
+		if(err) throw err;
+		result.whichFile = parseInt(result.whichFile);
+		parseTextFileForFolderNames(textFiles[result.whichFile]);
+	});
 }
 
 function populateHelperFiles() {
@@ -210,6 +216,7 @@ function tryStepFunc(func, step) {
 }
 
 var lastFilesChanged = [];
+var tracedWarning = false;
 
 //Stitch Constructor:
 class stitch {
@@ -241,9 +248,15 @@ class stitch {
                 },
                 
                 change(changeType, fullpath) {
-					if(isProd || isRender || isBatching) {
-						return trace("Watcher disabled in Production & Rendering mode.".red);
-					}
+                    if ( isProd || isRender || isBatching ) {
+                        if ( !tracedWarning ) {
+                            tracedWarning = true;
+                            trace( "Watcher disabled in Production, Rendering or Batch mode.".red );
+                        }
+
+                        return;
+                    }
+                    
 					fullpath = fullpath.fixSlashes();
 					
                     var badExtensions = "ts,less,hx,png,jpeg,jpg".split(',');
@@ -415,7 +428,10 @@ class stitch {
 			var ID = result.ad;
             
             //cb && cb(result);
-            if(!ID) ID = 0;
+            if ( !ID ) ID = 0;
+            
+            if ( ID === '+' ) ID = ( lastSettings.ad + 1 ) | 0;
+            if ( ID === '-' ) ID = ( lastSettings.ad - 1 ) | 0;
             
             if(isNaN(ID) || ID<0 || ID >= adNames.length) {
                 _this._primaryAd = null;
