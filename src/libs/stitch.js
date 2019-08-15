@@ -418,6 +418,8 @@ class stitch {
         });
         trace("\n  (Enter any invalid entry to build ALL ads.)\n");
         //adNames
+		
+		_this._primaryAd = null;
         
         prompt.start();
         prompt.get([{name: 'ad', 'default': lastSettings.ad}], (err, result) => {
@@ -430,19 +432,18 @@ class stitch {
             //cb && cb(result);
             if ( !ID ) ID = 0;
             
-            if ( ID === '+' ) ID = ( lastSettings.ad + 1 ) | 0;
-            if ( ID === '-' ) ID = ( lastSettings.ad - 1 ) | 0;
+            if ( ID === '+' ) ID = ( lastSettings.ad | 0 ) + 1;
+            if ( ID === '-' ) ID = ( lastSettings.ad | 0 ) - 1;
             
             if(isNaN(ID) || ID<0 || ID >= adNames.length) {
-                _this._primaryAd = null;
-				isBatching = true;
+                isBatching = true;
 				
 				const firstChar = ID[0];
 				
 				if(firstChar=='*') {
 					ID = ID.substr(1);
 					
-					var beforeLen = adNames.length;
+					const beforeLen = adNames.length;
 					
 					adNames = adNames.filter( a => a.has(ID) );
 
@@ -484,6 +485,7 @@ class stitch {
             } else {
                 var adName = adNames[lastSettings.ad = ID];
                 _this._primaryAd = _this._ads[adName];
+				_this._primaryAd.id = ID;
 
                 playSound(ASSETS.SOUNDS.BUILD_SINGLE);
                 //Remember setting for next re-launch:
@@ -505,7 +507,7 @@ class stitch {
         traceClear();
         
         if(_this._primaryAd) {
-            trace("Serving '{0}' on http://localhost:3333/\n\n".format(_this._primaryAd.filename).yellow);
+            trace("Serving #{0} on http://localhost:3333/ \n {1}\n".format(_this._primaryAd.id, _this._primaryAd.filename).yellow);
 
             adNames = adNames.filter(adName => adName===_this._primaryAd.filename);
         }
@@ -955,7 +957,7 @@ class stitch {
             },
             
             (step) => {
-                trace("Build Complete!".magenta);
+                trace("Build Complete! {0}".format(_this._primaryAd ? '#' + _this._primaryAd.id : '').magenta);
                 playSound(ASSETS.SOUNDS.ON_COMPLETE);
                 this._sse.sendAll(JSON.stringify({refresh: true}));
             }
